@@ -1,83 +1,181 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Download YouTube Video</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-        }
-    </style>
+    <title>YouTube Video Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- YouTube IFrame API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
 </head>
+<body class="bg-gray-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto space-y-6">
+        <!-- Header -->
+        <h1 class="text-4xl font-bold text-gray-800 text-center">YouTube Video Downloader</h1>
 
-<body class="bg-gray-100">
-    <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold mb-4 text-center">Download YouTube Video</h1>
-        <div class="bg-white p-6 rounded-lg shadow-lg">
-            <div class="mb-4">
-                <label for="videoUrl" class="block text-gray-700">YouTube Video URL:</label>
-                <input type="text" id="videoUrl" class="form-control" placeholder="Paste YouTube video URL here">
+        <!-- URL Input Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex gap-4">
+                <input 
+                    type="text" 
+                    id="urlInput"
+                    placeholder="Paste YouTube URL here..."
+                    class="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                <button 
+                    onclick="loadVideo()"
+                    class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
+                >
+                    Load Video
+                </button>
             </div>
-            <div class="mb-4">
-                <label for="quality" class="block text-gray-700">Select Quality:</label>
-                <select id="quality" class="form-control">
-                    <option value="1080p">1080P</option>
-                    <option value="720p">720P</option>
-                    <option value="480p">480P</option>
-                    <option value="360p">360P</option>
-                </select>
-            </div>
-            <button class="btn btn-primary w-full" onclick="downloadVideo()">Download</button>
         </div>
-        <div class="bg-white p-6 rounded-lg shadow-lg mt-6">
-            <h2 class="text-2xl font-bold mb-4">Cut Video</h2>
-            <div class="mb-4">
-                <label for="startTime" class="block text-gray-700">Start Time (in seconds):</label>
-                <input type="number" id="startTime" class="form-control" placeholder="Enter start time">
-            </div>
-            <div class="mb-4">
-                <label for="endTime" class="block text-gray-700">End Time (in seconds):</label>
-                <input type="number" id="endTime" class="form-control" placeholder="Enter end time">
-            </div>
-            <button class="btn btn-secondary w-full" onclick="cutVideo()">Cut Video</button>
+
+        <!-- Video Preview -->
+        <div id="videoPreview" class="hidden bg-white rounded-lg shadow-md p-6">
+            <div id="player" class="aspect-video bg-gray-200 rounded-lg"></div>
+            <h2 id="videoTitle" class="text-xl font-semibold mt-4"></h2>
         </div>
+
+        <!-- Download Options -->
+        <div id="downloadOptions" class="hidden bg-white rounded-lg shadow-md p-6 space-y-6">
+            <!-- Quality Selection -->
+            <div>
+                <h3 class="text-lg font-medium mb-3">Select Quality</h3>
+                <div id="qualityButtons" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+            </div>
+
+            <!-- Video Trimmer -->
+            <div>
+                <h3 class="text-lg font-medium mb-3">Trim Video</h3>
+                <div class="flex gap-4">
+                    <div class="flex-1">
+                        <label class="block text-sm mb-1">Start Time (seconds)</label>
+                        <input 
+                            type="number" 
+                            id="startTime" 
+                            class="w-full p-2 border rounded"
+                            min="0"
+                            value="0"
+                        >
+                    </div>
+                    <div class="flex-1">
+                        <label class="block text-sm mb-1">End Time (seconds)</label>
+                        <input 
+                            type="number" 
+                            id="endTime" 
+                            class="w-full p-2 border rounded"
+                            min="0"
+                        >
+                    </div>
+                </div>
+            </div>
+
+            <!-- Download Button -->
+            <button 
+                onclick="handleDownload()"
+                class="w-full bg-green-500 text-white py-3 rounded-lg hover:bg-green-600 transition-colors"
+            >
+                Download Video
+            </button>
+        </div>
+
+        <!-- Status Message -->
+        <div id="status" class="text-center text-gray-600"></div>
     </div>
 
     <script>
-        function downloadVideo() {
-            const videoUrl = document.getElementById('videoUrl').value;
-            const quality = document.getElementById('quality').value;
+        let player;
+        let currentVideoId;
+        const qualities = ['1080p', '720p', '480p', '360p'];
 
-            if (!videoUrl) {
-                alert('Please enter a YouTube video URL.');
+        function loadVideo() {
+            const url = document.getElementById('urlInput').value;
+            const videoId = extractVideoId(url);
+
+            if (!videoId) {
+                showStatus('Invalid YouTube URL', 'red');
                 return;
             }
 
-            // Implement the actual download logic here using a backend service
-            alert(`Downloading video from URL: ${videoUrl} in ${quality} quality.`);
+            currentVideoId = videoId;
+            initializePlayer(videoId);
         }
 
-        function cutVideo() {
-            const startTime = parseInt(document.getElementById('startTime').value);
-            const endTime = parseInt(document.getElementById('endTime').value);
+        function extractVideoId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
 
-            if (isNaN(startTime) || isNaN(endTime) || startTime >= endTime) {
-                alert('Please enter valid start and end times.');
+        function initializePlayer(videoId) {
+            if (player) player.destroy();
+
+            player = new YT.Player('player', {
+                height: '390',
+                width: '640',
+                videoId: videoId,
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            document.getElementById('videoPreview').classList.remove('hidden');
+            document.getElementById('downloadOptions').classList.remove('hidden');
+            showStatus('Video loaded successfully', 'green');
+            populateQualityOptions();
+        }
+
+        function populateQualityOptions() {
+            const container = document.getElementById('qualityButtons');
+            container.innerHTML = '';
+
+            qualities.forEach(quality => {
+                const button = document.createElement('button');
+                button.className = 'p-2 bg-gray-100 rounded hover:bg-gray-200 transition-colors';
+                button.textContent = quality;
+                button.onclick = () => selectQuality(quality);
+                container.appendChild(button);
+            });
+        }
+
+        function selectQuality(quality) {
+            const buttons = document.querySelectorAll('#qualityButtons button');
+            buttons.forEach(btn => btn.classList.remove('bg-blue-500', 'text-white'));
+            event.target.classList.add('bg-blue-500', 'text-white');
+        }
+
+        function handleDownload() {
+            const quality = document.querySelector('#qualityButtons button.bg-blue-500')?.textContent;
+            const start = document.getElementById('startTime').value;
+            const end = document.getElementById('endTime').value;
+
+            if (!quality) {
+                showStatus('Please select a quality', 'red');
                 return;
             }
 
-            // Implement the actual cut logic here using a backend service
-            alert(`Cutting video from ${startTime} to ${endTime} seconds.`);
+            // In real implementation, you would send these parameters to a backend service
+            showStatus(`Downloading ${quality} video (${start}s-${end}s)...`, 'blue');
+            
+            // Simulated download
+            setTimeout(() => {
+                showStatus('Download completed!', 'green');
+            }, 2000);
+        }
+
+        function showStatus(message, color) {
+            const statusElem = document.getElementById('status');
+            statusElem.textContent = message;
+            statusElem.style.color = color || 'inherit';
+        }
+
+        function onPlayerStateChange(event) {
+            // Handle player state changes if needed
         }
     </script>
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
-
 </html>
-``` ▋
